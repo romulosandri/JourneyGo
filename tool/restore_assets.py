@@ -1,23 +1,50 @@
-"""Write the fonts and launcher icons stored in tool/payloads."""
+"""Download the OFL fonts and draw the JourneyGo launcher mark.
 
-import base64
-import json
+The TrueType files come from Fontsource on jsDelivr. The mark is drawn
+locally, so a clone does not need the binary files checked in.
+"""
+
+import urllib.request
 from pathlib import Path
 
+import make_icon
+
 ROOT = Path(__file__).resolve().parents[1]
-PAYLOADS = Path(__file__).resolve().parent / "payloads"
+FONTS = ROOT / "assets" / "fonts"
+
+FONT_URLS = {
+    "Fraunces-Regular.ttf": (
+        "https://cdn.jsdelivr.net/fontsource/fonts/fraunces@5.2.8/latin-400-normal.ttf"
+    ),
+    "Fraunces-SemiBold.ttf": (
+        "https://cdn.jsdelivr.net/fontsource/fonts/fraunces@5.2.8/latin-600-normal.ttf"
+    ),
+    "Outfit-Regular.ttf": (
+        "https://cdn.jsdelivr.net/fontsource/fonts/outfit@5.2.8/latin-400-normal.ttf"
+    ),
+    "Outfit-Medium.ttf": (
+        "https://cdn.jsdelivr.net/fontsource/fonts/outfit@5.2.8/latin-500-normal.ttf"
+    ),
+    "Outfit-SemiBold.ttf": (
+        "https://cdn.jsdelivr.net/fontsource/fonts/outfit@5.2.8/latin-600-normal.ttf"
+    ),
+}
+
+TRUE_TYPE = b"\x00\x01\x00\x00"
 
 
 def main() -> None:
-    count = 0
-    for payload in sorted(PAYLOADS.glob("*.json")):
-        manifest = json.loads(payload.read_text())
-        for relative, encoded in manifest.items():
-            destination = ROOT / relative
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_bytes(base64.b64decode(encoded))
-            count += 1
-    print(f"Restored {count} fonts and icons.")
+    FONTS.mkdir(parents=True, exist_ok=True)
+    for name, url in FONT_URLS.items():
+        destination = FONTS / name
+        urllib.request.urlretrieve(url, destination)
+        header = destination.read_bytes()[:4]
+        if header != TRUE_TYPE:
+            raise SystemExit(f"{name} did not download as a TrueType font.")
+        print(f"Wrote assets/fonts/{name}")
+    make_icon.main()
+    print("Drew assets/brand/app_icon.png and app_icon_foreground.png.")
+    print("Next: flutter pub get && dart run flutter_launcher_icons")
 
 
 if __name__ == "__main__":
