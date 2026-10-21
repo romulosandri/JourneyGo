@@ -46,3 +46,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Font binaries are restored by tool/restore_assets.py
+assets/fonts/*.ttf
