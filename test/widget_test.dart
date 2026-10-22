@@ -1,115 +1,118 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:journeygo/src/app.dart';
-import 'package:journeygo/src/data/journey_repository.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:journeygo/src/widgets/chrome.dart';
 
 void main() {
-  final today = DateTime(2026, 10, 20);
+  final now = DateTime(2026, 10, 21, 14);
 
-  setUp(() {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-  });
-
-  testWidgets('shows the sample routes and filters them', (tester) async {
-    await _pumpApp(tester, today);
-
-    expect(find.text('Lisbon'), findsOneWidget);
-    expect(find.text('Oaxaca'), findsOneWidget);
-    expect(find.text('Kyoto'), findsOneWidget);
-    expect(find.text('3 journeys on this phone.'), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Upcoming'));
-    await tester.pump();
-
-    expect(find.text('Oaxaca'), findsOneWidget);
-    expect(find.text('Lisbon'), findsNothing);
-    expect(find.text('Kyoto'), findsNothing);
-
-    await tester.tap(find.widgetWithText(ChoiceChip, 'All'));
-    await tester.pump();
-    await tester.enterText(find.byKey(const Key('journey-search')), 'inari');
-    await tester.pump();
-
-    expect(find.text('Kyoto'), findsOneWidget);
-    expect(find.text('Lisbon'), findsNothing);
-  });
-
-  testWidgets('marks a stop visited from the route', (tester) async {
-    await _pumpApp(tester, today);
-    await tester.tap(find.text('Lisbon'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('2 of 5 places'), findsOneWidget);
-    final stop = find.text('LX Factory');
-    await tester.ensureVisible(stop);
-    final visitedBefore = tester.widgetList(find.text('Visited')).length;
-    await tester.tap(stop);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-    expect(tester.widgetList(find.text('Visited')).length, visitedBefore + 1);
-    await tester.drag(find.byType(ListView).hitTestable(), const Offset(0, 800));
-    await tester.pump();
-    expect(find.text('3 of 5 places'), findsOneWidget);
-  });
-
-  testWidgets('adds a journey and a stop, then removes the journey', (
-    tester,
-  ) async {
-    await _pumpApp(tester, today);
-
-    await tester.tap(find.byKey(const Key('new-journey')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('journey-title')),
-      'Coast road',
+  Future<void> launch(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(393, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      JourneyApp(clock: () => now, generateDelay: Duration.zero),
     );
-    await tester.enterText(find.byKey(const Key('journey-place')), 'Big Sur');
-    await tester.ensureVisible(find.byKey(const Key('save-journey')));
-    await tester.tap(find.byKey(const Key('save-journey')));
     await tester.pumpAndSettle();
+  }
 
-    final bigSur = find.text('Big Sur');
-    expect(bigSur, findsOneWidget);
-    await tester.ensureVisible(bigSur);
-    await tester.tap(bigSur);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('add-stop')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('stop-name')),
-      'Bixby Creek Bridge',
+  testWidgets('the draft stays closed until a vibe is chosen', (tester) async {
+    await launch(tester);
+    expect(
+      tester
+          .widget<PrimaryButton>(find.byKey(const Key('spark-continue')))
+          .onPressed,
+      isNull,
     );
-    await tester.enterText(
-      find.byKey(const Key('stop-detail')),
-      'Pull over before the fog',
+    await tester.tap(find.byKey(const Key('vibe-beach')));
+    await tester.pump();
+    expect(
+      tester
+          .widget<PrimaryButton>(find.byKey(const Key('spark-continue')))
+          .onPressed,
+      isNotNull,
     );
-    await tester.ensureVisible(find.byKey(const Key('save-stop')));
-    await tester.tap(find.byKey(const Key('save-stop')));
+    await tester.tap(find.byKey(const Key('spark-continue')));
     await tester.pumpAndSettle();
-
-    expect(find.text('Bixby Creek Bridge'), findsOneWidget);
-    expect(find.text('0 of 1 place'), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Remove journey'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Remove'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Big Sur'), findsNothing);
-    expect(find.text('Lisbon'), findsOneWidget);
+    expect(find.textContaining('Costa Lumen'), findsWidgets);
   });
-}
 
-Future<void> _pumpApp(WidgetTester tester, DateTime today) async {
-  tester.view.physicalSize = const Size(390, 844);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.resetPhysicalSize);
-  addTearDown(tester.view.resetDevicePixelRatio);
-  final preferences = await SharedPreferences.getInstance();
-  await tester.pumpWidget(
-    JourneyApp(repository: JourneyRepository(preferences), clock: () => today),
-  );
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 20));
+  testWidgets('the hub waits without naming anyone', (tester) async {
+    await launch(tester);
+    await tester.tap(find.byIcon(Icons.layers_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('preview-basics')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('hub-screen')), findsOneWidget);
+    expect(find.text('Waiting on 1 person'), findsWidgets);
+    expect(find.text('Waiting on 2 people'), findsWidgets);
+    for (final name in ['Bruno', 'Caio', 'Duda', 'Leo', 'Mari']) {
+      expect(find.textContaining(name), findsNothing);
+    }
+  });
+
+  testWidgets('Mari never sees anyone else\'s budget numbers', (tester) async {
+    await launch(tester);
+    await tester.tap(find.byIcon(Icons.layers_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('preview-basics')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('View as someone else'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('viewer-mari')));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const Key('hub-screen')),
+      const Offset(0, -360),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('decision-budget')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Only you see these'), findsOneWidget);
+    for (final private in ['340', '400', '230', '300']) {
+      expect(find.textContaining(private), findsNothing);
+    }
+  });
+
+  testWidgets('a yes moves the destination deck along', (tester) async {
+    await launch(tester);
+    await tester.tap(find.byIcon(Icons.layers_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('preview-basics')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('decision-destination')));
+    await tester.tap(find.byKey(const Key('decision-destination')));
+    await tester.pumpAndSettle();
+    expect(find.text('Costa Lumen'), findsWidgets);
+    await tester.tap(find.byKey(const Key('swipe-yes')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Ilha Sereno'), findsWidgets);
+  });
+
+  testWidgets('organiser plus one reaches the ticket', (tester) async {
+    await launch(tester);
+    await tester.tap(find.byIcon(Icons.layers_outlined));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('preview-commit')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('commit-in')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.textContaining('Organiser + 1 needed'),
+      120,
+    );
+    expect(find.textContaining('Organiser + 1 needed'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('View as someone else'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('viewer-bruno')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('commit-in')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('ticket-screen')), findsOneWidget);
+    expect(find.textContaining('Sunny Escape is ON'), findsOneWidget);
+    expect(find.textContaining('23 days to go'), findsOneWidget);
+  });
 }

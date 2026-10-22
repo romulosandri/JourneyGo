@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../models/journey.dart';
-
 abstract final class JourneyColors {
   static const paper = Color(0xFFF3EEE4);
   static const card = Color(0xFFFFFBF6);
@@ -13,35 +11,11 @@ abstract final class JourneyColors {
   static const sea = Color(0xFF1C6B64);
   static const night = Color(0xFF24324A);
   static const gold = Color(0xFFA97612);
+  static const amber = Color(0xFFC47B2B);
+  static const moss = Color(0xFF2C6B3C);
+  static const rose = Color(0xFF8C4A6F);
+  static const dune = Color(0xFFE7D7C3);
   static const onAccent = Color(0xFFFFF8F3);
-}
-
-extension JourneyAccentStyle on JourneyAccent {
-  Color get color {
-    switch (this) {
-      case JourneyAccent.terracotta:
-        return JourneyColors.terracotta;
-      case JourneyAccent.sea:
-        return JourneyColors.sea;
-      case JourneyAccent.night:
-        return JourneyColors.night;
-      case JourneyAccent.gold:
-        return JourneyColors.gold;
-    }
-  }
-
-  String get label {
-    switch (this) {
-      case JourneyAccent.terracotta:
-        return 'Terracotta';
-      case JourneyAccent.sea:
-        return 'Sea';
-      case JourneyAccent.night:
-        return 'Night';
-      case JourneyAccent.gold:
-        return 'Gold';
-    }
-  }
 }
 
 ThemeData buildJourneyTheme() {
@@ -50,12 +24,12 @@ ThemeData buildJourneyTheme() {
   final textTheme = TextTheme(
     displaySmall: fraunces.copyWith(
       fontWeight: FontWeight.w600,
-      fontSize: 40,
+      fontSize: 36,
       height: 1.05,
     ),
     headlineMedium: fraunces.copyWith(
       fontWeight: FontWeight.w600,
-      fontSize: 32,
+      fontSize: 30,
       height: 1.1,
     ),
     headlineSmall: fraunces.copyWith(
@@ -91,13 +65,13 @@ ThemeData buildJourneyTheme() {
     ),
     labelLarge: outfit.copyWith(
       fontWeight: FontWeight.w600,
-      fontSize: 15,
+      fontSize: 16,
       height: 1.2,
     ),
     labelMedium: outfit.copyWith(
       fontWeight: FontWeight.w600,
       fontSize: 12,
-      letterSpacing: 0.6,
+      letterSpacing: 0.8,
       color: JourneyColors.inkSoft,
     ),
   );
@@ -126,6 +100,7 @@ ThemeData buildJourneyTheme() {
     colorScheme: scheme,
     scaffoldBackgroundColor: JourneyColors.paper,
     textTheme: textTheme,
+    splashFactory: InkRipple.splashFactory,
     appBarTheme: AppBarTheme(
       backgroundColor: JourneyColors.paper,
       foregroundColor: JourneyColors.ink,
@@ -135,20 +110,13 @@ ThemeData buildJourneyTheme() {
       systemOverlayStyle: SystemUiOverlayStyle.dark,
       titleTextStyle: textTheme.titleLarge,
     ),
-    floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: JourneyColors.terracotta,
-      foregroundColor: JourneyColors.onAccent,
-      extendedTextStyle: TextStyle(
-        fontFamily: 'Outfit',
-        fontWeight: FontWeight.w600,
-        fontSize: 15,
-      ),
-    ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: JourneyColors.terracotta,
+        backgroundColor: JourneyColors.ink,
         foregroundColor: JourneyColors.onAccent,
-        minimumSize: const Size.fromHeight(52),
+        disabledBackgroundColor: JourneyColors.dune,
+        disabledForegroundColor: JourneyColors.inkSoft,
+        minimumSize: const Size.fromHeight(56),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         textStyle: textTheme.labelLarge?.copyWith(
           color: JourneyColors.onAccent,
@@ -156,7 +124,17 @@ ThemeData buildJourneyTheme() {
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: JourneyColors.ink),
+      style: TextButton.styleFrom(
+        foregroundColor: JourneyColors.ink,
+        minimumSize: const Size(44, 44),
+        textStyle: textTheme.titleSmall,
+      ),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: JourneyColors.ink,
+      contentTextStyle: outfit.copyWith(color: JourneyColors.onAccent),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -169,14 +147,16 @@ ThemeData buildJourneyTheme() {
       focusedBorder: border.copyWith(
         borderSide: const BorderSide(color: JourneyColors.ink, width: 1.4),
       ),
-      errorBorder: border.copyWith(borderSide: BorderSide(color: scheme.error)),
-      focusedErrorBorder: border.copyWith(
-        borderSide: BorderSide(color: scheme.error, width: 1.4),
-      ),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: JourneyColors.card,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: JourneyColors.card,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
     ),
     progressIndicatorTheme: const ProgressIndicatorThemeData(
       color: JourneyColors.terracotta,
