@@ -39,6 +39,7 @@ class _CostLogScreenState extends State<CostLogScreen> {
       trip,
       simplified: controller.simplifyPayments,
     );
+    final rawTransfers = transfersFor(trip, simplified: false);
     final logged = loggedTotal(trip);
     final estimate = sharedEstimate(trip);
     final text = Theme.of(context).textTheme;
@@ -63,13 +64,20 @@ class _CostLogScreenState extends State<CostLogScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          Text('Shared costs', style: text.headlineSmall),
+          const SizedBox(height: 4),
           Text(
-            'Estimate ${money(estimate)} each · Logged ${money(logged)} so far',
+            'Optional. A record only, no money moves through JourneyGo.',
+            style: text.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Estimated ${money(estimate)} each · Logged so far ${money(logged)}',
             style: text.titleSmall,
           ),
           const SizedBox(height: 12),
           if (trip.costs.isEmpty)
-            const Text('Nothing logged yet. The estimate still stands.')
+            const Text('Nothing logged. That\'s fine. This is optional.')
           else ...[
             for (final cost in trip.costs.reversed)
               ListTile(
@@ -92,15 +100,20 @@ class _CostLogScreenState extends State<CostLogScreen> {
             value: controller.simplifyPayments,
             onChanged: controller.setSimplify,
           ),
+          if (controller.simplifyPayments &&
+              trip.costs.isNotEmpty &&
+              rawTransfers.length != transfers.length)
+            Text(
+              '${rawTransfers.length} payments → ${transfers.length}',
+              style: text.titleSmall,
+            ),
           if (trip.costs.isNotEmpty && transfers.isEmpty)
-            const Text('Everyone\'s square.')
+            const Text('Everyone\'s square ✓')
           else
             for (final transfer in transfers)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(
-                  '${_name(trip, transfer.fromId)} pays ${_name(trip, transfer.toId)} ${money(transfer.amount)}',
-                ),
+                title: Text(_transferLine(trip, transfer)),
                 trailing: TextButton(
                   key: Key('mark-paid-${transfer.fromId}-${transfer.toId}'),
                   onPressed: () => controller.markPaid(transfer),
@@ -181,6 +194,19 @@ class _CostLogScreenState extends State<CostLogScreen> {
     controller.addCost(title: _title.text, amount: amount, payerId: payer);
     _title.clear();
     _amount.clear();
+  }
+
+  String _transferLine(TripSession trip, Transfer transfer) {
+    final amount = money(transfer.amount);
+    final from = trip.member(transfer.fromId)?.name ?? 'Someone';
+    final to = trip.member(transfer.toId)?.name ?? 'Someone';
+    if (transfer.fromId == trip.viewerId) {
+      return 'You owe $to $amount';
+    }
+    if (transfer.toId == trip.viewerId) {
+      return '$from owes you $amount';
+    }
+    return '$from pays $to $amount';
   }
 
   String _name(TripSession trip, String id) {

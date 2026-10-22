@@ -72,6 +72,15 @@ class HubScreen extends StatelessWidget {
                       ? () => Navigator.of(context).pushNamed(AppRoutes.invite)
                       : null,
                 ),
+                if (trip.optOutReasons.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    trip.optOutReasons.length == 1
+                        ? '1 can\'t make it'
+                        : '${trip.optOutReasons.length} can\'t make it',
+                    style: text.bodyMedium,
+                  ),
+                ],
                 if (trip.pendingSync) ...[
                   const SizedBox(height: 8),
                   Text(
@@ -289,7 +298,7 @@ class _TicketBanner extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${trip.name} is on',
+                '${trip.name} is ON',
                 style: Theme.of(context).textTheme.titleLarge
                     ?.copyWith(color: JourneyColors.onAccent),
               ),

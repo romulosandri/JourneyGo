@@ -38,6 +38,12 @@ class _StayScreenState extends State<StayScreen> {
     final viewer = trip.viewerId;
     final alreadySuggested =
         viewer != null && trip.stayAddedBy.contains(viewer);
+    final locked = trip.locked.contains(DecisionKind.stay);
+    final votedId = viewer == null ? null : trip.stayVotes[viewer];
+    final votedName = _stayName(trip, votedId);
+    final votedCount = trip.stayVotes.keys
+        .where((id) => trip.joined.any((member) => member.id == id))
+        .length;
     final text = Theme.of(context).textTheme;
     return ProductScaffold(
       title: 'Stay',
@@ -49,14 +55,9 @@ class _StayScreenState extends State<StayScreen> {
                 children: [
                   const DecisionHeader(kind: DecisionKind.stay),
                   const SizedBox(height: 20),
-                  Text(
-                    'Nothing in the comfortable range yet.',
-                    style: text.headlineSmall,
-                  ),
+                  Text(_emptyHeadline(trip), style: text.headlineSmall),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Suggest one the group can actually book. One suggestion each, so the list stays short.',
-                  ),
+                  Text(_emptyBody(trip)),
                 ],
               ),
             )
@@ -67,6 +68,30 @@ class _StayScreenState extends State<StayScreen> {
                   padding: EdgeInsets.fromLTRB(20, 8, 20, 0),
                   child: DecisionHeader(kind: DecisionKind.stay),
                 ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Pick a place to stay',
+                          style: text.headlineSmall,
+                        ),
+                      ),
+                      if (locked) ...[
+                        const SizedBox(width: 8),
+                        const LockedStamp(),
+                      ],
+                    ],
+                  ),
+                ),
+                if (locked)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    child: Text(
+                      'Stay locked: ${chosenStay(trip)?.name ?? 'the shortlist'}. Booking happens on the host site.',
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 Expanded(
                   child: PageView.builder(
@@ -91,6 +116,16 @@ class _StayScreenState extends State<StayScreen> {
                     routeNote: _routeNote(trip),
                   ),
                 ),
+                if (votedName != null || votedCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                    child: Text(
+                      votedName == null
+                          ? '$votedCount of ${trip.joined.length} voted'
+                          : 'You voted $votedName · $votedCount of ${trip.joined.length} voted',
+                      style: text.titleSmall,
+                    ),
+                  ),
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -120,8 +155,10 @@ class _StayScreenState extends State<StayScreen> {
               key: Key('stay-vote-${stays[index].id}'),
               label: trip.stayVotes[viewer] == stays[index].id
                   ? 'Your pick'
-                  : 'This one',
-              onPressed: () => controller.voteStay(stays[index].id),
+                  : 'Vote for ${stays[index].name}',
+              onPressed: locked
+                  ? null
+                  : () => controller.voteStay(stays[index].id),
             ),
           QuietButton(
             label: alreadySuggested ? 'You\'ve added yours' : 'Suggest a stay',
@@ -130,6 +167,44 @@ class _StayScreenState extends State<StayScreen> {
         ],
       ),
     );
+  }
+
+  String _emptyHeadline(TripSession trip) {
+    final band = _revealedBand(trip);
+    if (trip.viewerIsOrganiser && band != null) {
+      return 'Nothing sleeps ${trip.joined.length} within ${money(band.high)} each.';
+    }
+    return 'Nothing in the comfortable range yet.';
+  }
+
+  String _emptyBody(TripSession trip) {
+    final band = _revealedBand(trip);
+    if (trip.viewerIsOrganiser && band != null) {
+      return '${trip.organiser.name}, try 2 smaller places or a cheaper area.';
+    }
+    return 'Suggest one the group can actually book. One suggestion each, so the list stays short.';
+  }
+
+  BudgetBand? _revealedBand(TripSession trip) {
+    final viewer = trip.viewerId;
+    if (viewer == null ||
+        !trip.budgets.containsKey(viewer) ||
+        trip.budgets.length < trip.halfRequired) {
+      return null;
+    }
+    return budgetBand(trip);
+  }
+
+  String? _stayName(TripSession trip, String? id) {
+    if (id == null) {
+      return null;
+    }
+    for (final stay in trip.stays) {
+      if (stay.id == id) {
+        return stay.name;
+      }
+    }
+    return null;
   }
 
   String? _defaultId(List<StayOption> stays) {
@@ -265,18 +340,25 @@ class _Estimate extends StatelessWidget {
   Widget build(BuildContext context) {
     final trip = PlanningScope.of(context).trip!;
     final total = stayTripTotal(trip, stay);
-    final band = budgetBand(trip);
+    final viewer = trip.viewerId;
+    final revealed =
+        viewer != null &&
+        trip.budgets.containsKey(viewer) &&
+        trip.budgets.length >= trip.halfRequired;
+    final band = revealed ? budgetBand(trip) : null;
     final cap = band?.high ?? trip.draftCost;
     final fraction = cap <= 0 ? 1.0 : (total / cap).clamp(0, 1).toDouble();
     final over = band != null && total > band.high;
     final text = Theme.of(context).textTheme;
+    final summary = band == null
+        ? 'Trip so far: ${money(total)} each'
+        : over
+        ? 'Trip so far: ${money(total)} each · above the comfortable range'
+        : 'Trip so far: ${money(total)} each · inside your band (${money(band.low)}–${money(band.high)})';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'About ${money(total)} with activities, travel, and a buffer',
-          style: text.titleSmall,
-        ),
+        Text(summary, style: text.titleSmall),
         const SizedBox(height: 6),
         ClipRRect(
           borderRadius: BorderRadius.circular(99),
@@ -287,14 +369,6 @@ class _Estimate extends StatelessWidget {
             color: over ? JourneyColors.amber : JourneyColors.sea,
           ),
         ),
-        if (over)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              'Above the comfortable range.',
-              style: text.bodySmall?.copyWith(color: JourneyColors.amber),
-            ),
-          ),
         if (routeNote != null)
           Padding(
             padding: const EdgeInsets.only(top: 6),

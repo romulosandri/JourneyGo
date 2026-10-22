@@ -57,6 +57,10 @@ class _TicketScreenState extends State<TicketScreen>
         rankDestinations(trip).leader?.title ?? trip.places.first.name;
     final stay = chosenStay(trip)?.name ?? 'Stay to book';
     final anchors = anchorActivities(trip);
+    final committed = [
+      for (final member in trip.members)
+        if (trip.committed.contains(member.id)) member,
+    ];
     final days = daysUntil(controller.now, trip.start);
     final slide = Tween<Offset>(
       begin: const Offset(0, 0.08),
@@ -75,7 +79,15 @@ class _TicketScreenState extends State<TicketScreen>
             children: [
               Text(_when(days), style: text.labelMedium),
               const SizedBox(height: 8),
-              Text('${trip.name} is on', style: text.displaySmall),
+              Text('${trip.name} is ON', style: text.displaySmall),
+              const SizedBox(height: 6),
+              Text(
+                '$place · ${sentenceRange(trip.start, trip.end)} · ${trip.committed.length} in so far',
+              ),
+              if (committed.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                AvatarStack(members: committed),
+              ],
               if (trip.arrivalNote != null) ...[
                 const SizedBox(height: 8),
                 Text(trip.arrivalNote!, style: text.titleSmall),
@@ -137,7 +149,9 @@ class _TicketScreenState extends State<TicketScreen>
                 key: const Key('book-stay'),
                 contentPadding: EdgeInsets.zero,
                 value: trip.booked,
-                title: const Text('Book the stay'),
+                title: Text(
+                  stay == 'Stay to book' ? 'Book the stay' : 'Book $stay',
+                ),
                 subtitle: Text(
                   trip.viewerIsOrganiser
                       ? 'You\'re the one who books.'

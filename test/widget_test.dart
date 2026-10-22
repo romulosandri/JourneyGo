@@ -62,7 +62,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('viewer-mari')));
     await tester.pumpAndSettle();
-    await tester.drag(find.byKey(const Key('hub-screen')), const Offset(0, -360));
+    await tester.drag(
+      find.byKey(const Key('hub-screen')),
+      const Offset(0, -360),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('decision-budget')));
     await tester.pumpAndSettle();
@@ -96,6 +99,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('commit-in')));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.textContaining('Organiser + 1 needed'),
+      120,
+    );
     expect(find.textContaining('Organiser + 1 needed'), findsOneWidget);
 
     await tester.tap(find.byTooltip('View as someone else'));
@@ -105,7 +112,7 @@ void main() {
     await tester.tap(find.byKey(const Key('commit-in')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('ticket-screen')), findsOneWidget);
-    expect(find.textContaining('Sunny Escape is on'), findsOneWidget);
+    expect(find.textContaining('Sunny Escape is ON'), findsOneWidget);
     expect(find.textContaining('23 days to go'), findsOneWidget);
   });
 }

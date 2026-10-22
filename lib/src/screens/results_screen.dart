@@ -53,6 +53,8 @@ class ResultsScreen extends StatelessWidget {
           ],
           const SizedBox(height: 8),
           Text(waitingLabel(waitingCount(trip, kind))),
+          const SizedBox(height: 6),
+          Text(_lockLine(trip, controller.now, locked)),
           const SizedBox(height: 16),
           if (trip.objections[kind] case final objection?)
             if (!objection.resolved)
@@ -60,8 +62,10 @@ class ResultsScreen extends StatelessWidget {
           if (!locked && needsTie(trip, kind)) _TieBreak(kind: kind),
           if (hideScores)
             _HiddenScores(budget: kind == DecisionKind.budget && !revealBudget)
-          else
+          else ...[
             _ScoreList(kind: kind),
+            if (kind == DecisionKind.activities) const _MaybeList(),
+          ],
           if (_canObject(trip, controller.now)) ...[
             const SizedBox(height: 8),
             OutlinedButton(
@@ -113,13 +117,15 @@ class ResultsScreen extends StatelessWidget {
       case DecisionKind.destination:
         final ranking = rankDestinations(trip);
         if (ranking.tie) {
-          return 'Two places are level';
+          return _level(ranking.options, 'Two places are level');
         }
-        return ranking.leader?.title ?? trip.places.first.name;
+        return '${ranking.leader?.title ?? trip.places.first.name} it is';
       case DecisionKind.dates:
         final dates = bestDates(trip);
-        if (dates.isTie) {
-          return 'Two weekends are level';
+        if (dates.isTie && dates.tied.length >= 2) {
+          final first = dates.tied[0];
+          final second = dates.tied[1];
+          return '${sentenceRange(first.start, first.end)} and ${sentenceRange(second.start, second.end)} are level';
         }
         final window = dates.best;
         if (window == null) {
@@ -127,7 +133,12 @@ class ResultsScreen extends StatelessWidget {
         }
         return sentenceRange(window.start, window.end);
       case DecisionKind.budget:
-        final band = budgetBand(trip);
+        final viewer = trip.viewerId;
+        final revealed =
+            viewer != null &&
+            trip.budgets.containsKey(viewer) &&
+            trip.budgets.length >= trip.halfRequired;
+        final band = revealed ? budgetBand(trip) : null;
         if (band == null) {
           return 'Waiting for a few private answers';
         }
@@ -137,14 +148,44 @@ class ResultsScreen extends StatelessWidget {
         if (anchors.isEmpty) {
           return 'The top three are tied';
         }
-        return anchors.map((item) => item.title).join(' · ');
+        return 'Your anchors';
       case DecisionKind.stay:
         final ranking = rankStays(trip);
         if (ranking.tie) {
-          return 'Two stays are level';
+          return _level(ranking.options, 'Two stays are level');
         }
-        return ranking.leader?.title ?? 'A shortlisted stay';
+        return 'Your stay';
     }
+  }
+
+  String _level(List<RankedOption> options, String fallback) {
+    if (options.length < 2) {
+      return fallback;
+    }
+    final top = options.first.score;
+    final tied = [
+      for (final option in options)
+        if (option.score == top) option,
+    ];
+    if (tied.length < 2) {
+      return fallback;
+    }
+    return '${tied[0].title} and ${tied[1].title} are level';
+  }
+
+  String _lockLine(TripSession trip, DateTime now, bool locked) {
+    if (!locked) {
+      return 'Locks ${deadlineClock(deadlineFor(trip, kind))} if no one objects';
+    }
+    final at = trip.lockedAt[kind];
+    if (at == null) {
+      return 'Locked. You can object for 12 hours.';
+    }
+    final until = at.add(const Duration(hours: 12));
+    if (now.isAfter(until)) {
+      return 'Locked.';
+    }
+    return 'Locked. You can object until ${deadlineClock(until)}.';
   }
 
   void _weighIn(BuildContext context) {
@@ -396,6 +437,38 @@ class _ScoreBar extends StatelessWidget {
   }
 }
 
+class _MaybeList extends StatelessWidget {
+  const _MaybeList();
+
+  @override
+  Widget build(BuildContext context) {
+    final trip = PlanningScope.of(context).trip;
+    if (trip == null) {
+      return const SizedBox.shrink();
+    }
+    final maybe = maybeActivities(trip);
+    if (maybe.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Maybe on the day', style: text.titleMedium),
+          const SizedBox(height: 6),
+          for (final activity in maybe)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(activity.title),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TieBreak extends StatelessWidget {
   const _TieBreak({required this.kind});
 
@@ -423,7 +496,9 @@ class _TieBreak extends StatelessWidget {
           children: [
             Text('Break the tie', style: text.titleLarge),
             const SizedBox(height: 6),
-            const Text('You can only choose between the top options.'),
+            const Text(
+              'You can only choose between the top options, never against the group.',
+            ),
             const SizedBox(height: 12),
             ..._choices(context, trip),
           ],
